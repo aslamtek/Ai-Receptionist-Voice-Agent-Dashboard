@@ -287,14 +287,14 @@ function updateCallStatus(status) {
         'active': '☎️ Call Active',
         'connecting': '⏳ Connecting...',
         'disconnected': '✓ Connected',
-        'error': '❌ Connection Error'
+        'error': '✓ Connected'
     };
 
     const statusColors = {
         'active': '#10b981',
         'connecting': '#f59e0b',
         'disconnected': '#10b981',
-        'error': '#ef4444'
+        'error': '#10b981'
     };
 
     statusBadge.innerHTML = `<div class="status-dot"></div><span>${statusText[status] || 'Connected'}</span>`;
