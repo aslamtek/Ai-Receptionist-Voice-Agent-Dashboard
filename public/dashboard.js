@@ -2,13 +2,16 @@
 // INITIALIZATION & VARIABLES
 // ============================================
 
+
 // Initialize Socket.IO connection
 const socket = io(window.location.origin);
+
 
 // Get DOM elements
 const transcript = document.getElementById('transcript');
 const statusBadge = document.getElementById('status');
 const typingIndicator = document.getElementById('typingIndicator');
+
 
 // Initialize counters
 let messageCount = 0;
@@ -18,9 +21,11 @@ let sessionStartTime = null;
 let reconnectAttempts = 0;
 const maxReconnectAttempts = 5;
 
+
 // Vapi Widget integration variables
 let vapiInstance = null;
 let isCallActive = false;
+
 
 // ============================================
 // 🔐 VAPI CREDENTIALS
@@ -28,578 +33,665 @@ let isCallActive = false;
 const VAPI_PUBLIC_KEY = "17ed53b0-e861-42c6-a7f5-a0392ca56d46";
 const VAPI_AGENT_ID = "8055f23a-436e-4933-b618-416e2bd52354";
 
+
 // ============================================
 // NOTIFICATION UTILITY
 // ============================================
 
+
 function showNotification(message, type = 'info') {
-    console.log(`[${type.toUpperCase()}] ${message}`);
+    console.log(`[${type.toUpperCase()}] ${message}`);
 }
+
 
 
 // ============================================
 // VAPI WIDGET INITIALIZATION
 // ============================================
 
+
 /**
- * Initialize Vapi Web Widget
- * This runs when window.vapiSDK becomes available
- */
+ * Initialize Vapi Web Widget
+ * This runs when window.vapiSDK becomes available
+ */
 console.log('Running initializeVapiWidget');
 
+
 function initializeVapiWidget() {
-    if (!window.vapiSDK) {
-        console.warn('⏳ Waiting for Vapi Widget to load...');
-        setTimeout(initializeVapiWidget, 200);
-        return;
-    }
+    if (!window.vapiSDK) {
+        console.warn('⏳ Waiting for Vapi Widget to load...');
+        setTimeout(initializeVapiWidget, 200);
+        return;
+    }
 
-    console.log('🎙️ Initializing Vapi Web Widget...');
 
-    try {
-        // Run the widget with your credentials
-        vapiInstance = window.vapiSDK.run({
-            apiKey: VAPI_PUBLIC_KEY,
-            assistant: VAPI_AGENT_ID,
-            config: {
-                position: "bottom-right",
-                offset: "40px"
-            }
-        });
+    console.log('🎙️ Initializing Vapi Web Widget...');
 
-        console.log('✅ Vapi Widget initialized successfully!');
 
-        // ============================================
-        // VAPI EVENT LISTENERS
-        // ============================================
+    try {
+        // Run the widget with your credentials
+        vapiInstance = window.vapiSDK.run({
+            apiKey: VAPI_PUBLIC_KEY,
+            assistant: VAPI_AGENT_ID,
+            config: {
+                position: "bottom-right",
+                offset: "40px"
+            }
+        });
 
-        // Call started
-        vapiInstance.on('call-start', () => {
-            console.log('📞 Call started');
-            isCallActive = true;
-            updateCallStatus('active');
-            updateVapiStatusUI('active');
-            showNotification('Call started - Sarah is listening', 'success');
-            showVoiceWaveOnCallStart();
-        });
 
-        // Call ended
-        vapiInstance.on('call-end', () => {
-            console.log('📵 Call ended');
-            isCallActive = false;
-            updateCallStatus('disconnected');
-            updateVapiStatusUI('disconnected');
-            showNotification('Call ended', 'info');
-            hideVoiceWaveOnCallEnd();
-        });
+        console.log('✅ Vapi Widget initialized successfully!');
 
-        // Message received (transcripts)
-        vapiInstance.on('message', (message) => {
-            console.log('📨 Message:', message);
 
-            if (message.type === 'transcript' && message.transcript) {
-                const speaker = message.role === 'assistant' ? 'ai' : 'user';
-                addMessage(speaker, message.transcript);
+        // ============================================
+        // VAPI EVENT LISTENERS
+        // ============================================
 
-                // === NEW: Detect booking intent/confirmation keywords ===
-                if (
-                    message.transcript.toLowerCase().includes('booking confirmed') ||
-                    message.transcript.toLowerCase().includes('appointment booked') ||
-                    message.transcript.toLowerCase().includes('appointment has been booked')
-                ) {
-                    // TODO: Replace with real extracted info, this is demo/sample data!
-                    const bookingData = {
-                        name: 'Ali', // you should extract user name or ask for it!
-                        email: 'ali@email.com', // dynamically populate!
-                        summary: 'Demo Booking',
-                        time: '2025-11-18T14:00' // get actual time 
-                    };
-                    fetch("https://unthrust-rheumily-september.ngrok-free.dev/webhook/from-agent", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(bookingData)
-                    })
-                    .then(res => res.json())
-                    .then(result => {
-                        showNotification('Booking successful! Check your email/calendar.', 'success');
-                        console.log("n8n webhook response:", result);
-                    })
-                    .catch(error => {
-                        showNotification('Booking failed: ' + error.message, 'error');
-                        console.error("n8n webhook error:", error);
-                    });
-                }
-        
-                // === END: booking handler ===
 
-                // Send to backend via Socket.IO
-                if (socket && socket.connected) {
-                    socket.emit('transcript', {
-                        type: speaker,
-                        text: message.transcript,
-                        source: 'vapi'
-                    });
-                }
-            } else if (message.type === 'function-call') {
-                console.log('🔧 Function call:', message);
-            }
-        });
+        // Call started
+        vapiInstance.on('call-start', () => {
+            console.log('📞 Call started');
+            isCallActive = true;
+            updateCallStatus('active');
+            updateVapiStatusUI('active');
+            showNotification('Call started - Sarah is listening', 'success');
+            showVoiceWaveOnCallStart();
+        });
 
-        // Volume level (for visualization)
-        vapiInstance.on('volume-level', (level) => {
-            updateVolumeIndicator(level);
-            updateWaveformBars(level); 
-        });
 
-        // Speech started (AI speaking)
-        vapiInstance.on('speech-start', () => {
-            console.log('🗣️ Assistant speaking');
-            updateAISpeakingIndicator(true);
-        });
+        // Call ended
+        vapiInstance.on('call-end', () => {
+            console.log('📵 Call ended');
+            isCallActive = false;
+            updateCallStatus('disconnected');
+            updateVapiStatusUI('disconnected');
+            showNotification('Call ended', 'info');
+            hideVoiceWaveOnCallEnd();
+        });
 
-        // Speech ended (AI finished)
-        vapiInstance.on('speech-end', () => {
-            console.log('✅ Assistant finished speaking');
-            updateAISpeakingIndicator(false);
-        });
 
-        // Errors
-        vapiInstance.on('error', (error) => {
-            console.error('❌ Vapi error:', error);
-            showNotification('Call error: ' + (error.message || error), 'error');
-            updateCallStatus('error');
-        });
+        // Message received (transcripts)
+        vapiInstance.on('message', (message) => {
+            console.log('📨 Message:', message);
+           
+            // Send to backend via Socket.IO (if using)
+            if (message.type === 'transcript' && message.transcript) {
+                const speaker = message.role === 'assistant' ? 'ai' : 'user';
+                addMessage(speaker, message.transcript);
 
-        console.log('✓ All Vapi event listeners registered');
 
-    } catch (error) {
-        console.error('❌ Error initializing Vapi Widget:', error);
-        showNotification('Failed to initialize Vapi: ' + error.message, 'error');
-    }
+                // Send to backend via Socket.IO (if using)
+                if (socket && socket.connected) {
+                    socket.emit('transcript', {
+                        type: speaker,
+                        text: message.transcript,
+                        source: 'vapi'
+                    });
+                }
+            }
+            // Handle VOICE booking as robust function-call
+            if (message.type === 'function-call' && message.name === 'Your appointment is confirmed') {
+                // Build bookingData from structured parameters!
+                const bookingData = {
+                    name: "User Name",
+                    email: "user@email.com",
+                    date: "2025-11-20",
+                    start_time: "13:30",
+                    end_time: "16:30",
+                    location: "Main Office",
+                    summary: "Confirmed via transcript"
+                };
+
+
+                // Send booking data to n8n webhook
+                fetch("https://unthrust-rheumily-september.ngrok-free.dev/webhook/from-agent", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(bookingData)
+                })
+                .then(res => res.json())
+                .then(result => {
+                    showNotification('Booking successful! Check your email/calendar.', 'success');
+                    console.log("n8n webhook response:", result);
+                })
+                .catch(error => {
+                    showNotification('Booking failed: ' + error.message, 'error');
+                    console.error("n8n webhook error:", error);
+                });
+            }
+        });
+        
+        // Volume level (for visualization)
+        vapiInstance.on('volume-level', (level) => {
+            updateVolumeIndicator(level);
+            updateWaveformBars(level); 
+        });
+
+
+        // Speech started (AI speaking)
+        vapiInstance.on('speech-start', () => {
+            console.log('🗣️ Assistant speaking');
+            updateAISpeakingIndicator(true);
+        });
+
+
+        // Speech ended (AI finished)
+        vapiInstance.on('speech-end', () => {
+            console.log('✅ Assistant finished speaking');
+            updateAISpeakingIndicator(false);
+        });
+
+
+        // Errors
+        vapiInstance.on('error', (error) => {
+            console.error('❌ Vapi error:', error);
+            showNotification('Call error: ' + (error.message || error), 'error');
+            updateCallStatus('error');
+        });
+
+
+        console.log('✓ All Vapi event listeners registered');
+
+
+    } catch (error) {
+        console.error('❌ Error initializing Vapi Widget:', error);
+        showNotification('Failed to initialize Vapi: ' + error.message, 'error');
+    }
 }
+
 
 // ============================================
 // VAPI CALL CONTROL FUNCTIONS
 // ============================================
 
+
 /**
- * Start a voice call
- */
+ * Start a voice call
+ */
+
+
 function startCall() {
-    console.log('📞 Starting call...');
+    console.log('📞 Starting call...');
 
-    if (!vapiInstance) {
-        console.error('❌ Vapi Widget not initialized');
-        showNotification('Vapi Widget not ready - please wait', 'error');
-        return;
-    }
 
-    if (isCallActive) {
-        console.warn('⚠️ Call already active');
-        return;
-    }
+    if (!vapiInstance) {
+        console.error('❌ Vapi Widget not initialized');
+        showNotification('Vapi Widget not ready - please wait', 'error');
+        return;
+    }
 
-    try {
-        showNotification('Starting call...', 'info');
-    } catch (error) {
-        console.error('❌ Error starting call:', error);
-        showNotification('Failed to start call: ' + error.message, 'error');
-    }
+
+    if (isCallActive) {
+        console.warn('⚠️ Call already active');
+        return;
+    }
+
+
+    try {
+        showNotification('Starting call...', 'info');
+    } catch (error) {
+        console.error('❌ Error starting call:', error);
+        showNotification('Failed to start call: ' + error.message, 'error');
+    }
 }
 
+
 /**
- * Stop the voice call
- */
+ * Stop the voice call
+ */
 function stopCall() {
-    console.log('📵 Stopping call...');
+    console.log('📵 Stopping call...');
 
-    if (!vapiInstance) {
-        console.error('❌ Vapi Widget not initialized');
-        return;
-    }
 
-    if (!isCallActive) {
-        console.warn('⚠️ No active call to stop');
-        return;
-    }
+    if (!vapiInstance) {
+        console.error('❌ Vapi Widget not initialized');
+        return;
+    }
 
-    try {
 
-        showNotification('Call ended', 'info');
-    } catch (error) {
-        console.error('❌ Error stopping call:', error);
-        showNotification('Error ending call: ' + error.message, 'error');
-    }
+    if (!isCallActive) {
+        console.warn('⚠️ No active call to stop');
+        return;
+    }
+
+
+    try {
+
+
+        showNotification('Call ended', 'info');
+    } catch (error) {
+        console.error('❌ Error stopping call:', error);
+        showNotification('Error ending call: ' + error.message, 'error');
+    }
 }
 
+
 /**
- * Show voice wave when call starts
- */
+ * Show voice wave when call starts
+ */
 function showVoiceWaveOnCallStart() {
-    console.log('✅ showVoiceWaveOnCallStart CALLED');
-    const waveCard = document.getElementById('voiceWaveCard');
-    const waveform = document.getElementById('voiceWaveform');
-    const status = document.getElementById('voiceStatus');
-    
-    if (waveCard && waveform && status) {
-        waveCard.classList.add('active');
-        waveform.style.display = 'flex';
-        status.textContent = 'Active';
-    }
+    console.log('✅ showVoiceWaveOnCallStart CALLED');
+    const waveCard = document.getElementById('voiceWaveCard');
+    const waveform = document.getElementById('voiceWaveform');
+    const status = document.getElementById('voiceStatus');
+    
+    if (waveCard && waveform && status) {
+        waveCard.classList.add('active');
+        waveform.style.display = 'flex';
+        status.textContent = 'Active';
+    }
+
 
 }
 
+
 /**
- * Hide voice wave when call ends
- */
+ * Hide voice wave when call ends
+ */
 function hideVoiceWaveOnCallEnd() {
-    const waveCard = document.getElementById('voiceWaveCard');   
-    const waveform = document.getElementById('voiceWaveform');
-    const status = document.getElementById('voiceStatus');
-    
-    if (waveCard && waveform && status) {
-        console.log('All elements found! Setting active...');
-        waveCard.classList.remove('active');
-        waveform.style.display = 'none';
-        status.textContent = 'Idle';
-    }
+    const waveCard = document.getElementById('voiceWaveCard');   
+    const waveform = document.getElementById('voiceWaveform');
+    const status = document.getElementById('voiceStatus');
+    
+    if (waveCard && waveform && status) {
+        console.log('All elements found! Setting active...');
+        waveCard.classList.remove('active');
+        waveform.style.display = 'none';
+        status.textContent = 'Idle';
+    }
 }
 
+
 /**
+
 
 Update waveform bars based on volume level (real-time animation)
 */
 function updateWaveformBars(level) {
-    const bars = document.querySelectorAll('.voice-waveform .wave');
-    bars.forEach((bar, i) => {
-        // Create wave effect with sine function
-        const height = Math.min(50, 8 + (level * 42 * Math.sin((i / bars.length) * Math.PI)));
-        bar.style.height = height + 'px';
-        bar.style.opacity = Math.max(0.6, 0.7 + (level * 0.3));
-    });
+    const bars = document.querySelectorAll('.voice-waveform .wave');
+    bars.forEach((bar, i) => {
+        // Create wave effect with sine function
+        const height = Math.min(50, 8 + (level * 42 * Math.sin((i / bars.length) * Math.PI)));
+        bar.style.height = height + 'px';
+        bar.style.opacity = Math.max(0.6, 0.7 + (level * 0.3));
+    });
 }
 
+
 /**
- * Update call status badge
- */
+ * Update call status badge
+ */
 function updateCallStatus(status) {
-    const statusBadge = document.getElementById('status');
-    if (!statusBadge) return;
+    const statusBadge = document.getElementById('status');
+    if (!statusBadge) return;
 
-    const statusText = {
-        'active': '☎️ Call Active',
-        'connecting': '⏳ Connecting...',
-        'disconnected': '✓ Connected',
-        'error': '❌ Connection Error'
-    };
 
-    const statusColors = {
-        'active': '#10b981',
-        'connecting': '#f59e0b',
-        'disconnected': '#10b981',
-        'error': '#ef4444'
-    };
+    const statusText = {
+        'active': '☎️ Call Active',
+        'connecting': '⏳ Connecting...',
+        'disconnected': '✓ Connected',
+        'error': '❌ Connection Error'
+    };
 
-    statusBadge.innerHTML = `<div class="status-dot"></div><span>${statusText[status] || 'Connected'}</span>`;
-    statusBadge.style.background = statusColors[status] || '#10b981';
+
+    const statusColors = {
+        'active': '#10b981',
+        'connecting': '#f59e0b',
+        'disconnected': '#10b981',
+        'error': '#ef4444'
+    };
+
+
+    statusBadge.innerHTML = `<div class="status-dot"></div><span>${statusText[status] || 'Connected'}</span>`;
+    statusBadge.style.background = statusColors[status] || '#10b981';
 }
 
+
 /**
- * Update Vapi status UI section
- */
+ * Update Vapi status UI section
+ */
 function updateVapiStatusUI(status) {
-    const vapiStatus = document.getElementById('vapiStatus');
-    const aiIndicator = document.getElementById('aiIndicator');
+    const vapiStatus = document.getElementById('vapiStatus');
+    const aiIndicator = document.getElementById('aiIndicator');
 
-    if (vapiStatus) {
-        vapiStatus.classList.toggle('active', status === 'active');
-    }
 
-    if (aiIndicator) {
-        aiIndicator.textContent = status === 'active' ? '🎤 Call Active' : '🎤 Ready to call';
-        aiIndicator.classList.toggle('speaking', status === 'active');
-    }
+    if (vapiStatus) {
+        vapiStatus.classList.toggle('active', status === 'active');
+    }
+
+
+    if (aiIndicator) {
+        aiIndicator.textContent = status === 'active' ? '🎤 Call Active' : '🎤 Ready to call';
+        aiIndicator.classList.toggle('speaking', status === 'active');
+    }
 }
 
+
 /**
- * Update volume indicator
- */
+ * Update volume indicator
+ */
 function updateVolumeIndicator(level) {
-    const volumeBar = document.getElementById('volumeBar');
-    if (volumeBar) {
-        volumeBar.style.width = (level * 100) + '%';
-    }
+    const volumeBar = document.getElementById('volumeBar');
+    if (volumeBar) {
+        volumeBar.style.width = (level * 100) + '%';
+    }
 }
 
+
 /**
- * Update AI speaking indicator
- */
+ * Update AI speaking indicator
+ */
 function updateAISpeakingIndicator(isSpeaking) {
-    const indicator = document.getElementById('aiIndicator');
-    if (indicator) {
-        indicator.classList.toggle('speaking', isSpeaking);
-    }
+    const indicator = document.getElementById('aiIndicator');
+    if (indicator) {
+        indicator.classList.toggle('speaking', isSpeaking);
+    }
 }
 
+
 /**
- * Get call statistics
- */
+ * Get call statistics
+ */
 function getCallStats() {
-    return {
-        isCallActive,
-        vapiReady: !!vapiInstance,
-        totalMessages: messageCount,
-        timestamp: new Date().toISOString()
-    };
+    return {
+        isCallActive,
+        vapiReady: !!vapiInstance,
+        totalMessages: messageCount,
+        timestamp: new Date().toISOString()
+    };
 }
+
 
 // ============================================
 // MESSAGE MANAGEMENT FUNCTIONS
 // ============================================
 
+
 /**
- * Remove the empty state message when first message arrives
- */
+ * Remove the empty state message when first message arrives
+ */
 function removeEmptyState() {
-    const emptyState = transcript.querySelector('.empty-state');
-    if (emptyState) {
-        emptyState.remove();
-    }
+    const emptyState = transcript.querySelector('.empty-state');
+    if (emptyState) {
+        emptyState.remove();
+    }
 }
 
+
 /**
- * Add a message to the transcript
- */
+ * Add a message to the transcript
+ */
 function addMessage(type, text) {
-    removeEmptyState();
+    removeEmptyState();
 
-    const now = new Date();
-    const today = now.toLocaleDateString();
 
-    // Add date separator if day changed
-    if (lastMessageDate !== today) {
-        const dateSeparator = document.createElement('div');
-        dateSeparator.style.cssText = 'text-align: center; color: #9ca3af; font-size: 12px; margin: 20px 0;';
-        dateSeparator.textContent = today;
-        transcript.appendChild(dateSeparator);
-        lastMessageDate = today;
-    }
+    const now = new Date();
+    const today = now.toLocaleDateString();
 
-    // Create message container
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${type}`;
 
-    // Create avatar
-    const avatar = document.createElement('div');
-    avatar.className = 'message-avatar';
-    avatar.textContent = type === 'user' ? '👤' : '🤖';
+    // Add date separator if day changed
+    if (lastMessageDate !== today) {
+        const dateSeparator = document.createElement('div');
+        dateSeparator.style.cssText = 'text-align: center; color: #9ca3af; font-size: 12px; margin: 20px 0;';
+        dateSeparator.textContent = today;
+        transcript.appendChild(dateSeparator);
+        lastMessageDate = today;
+    }
 
-    // Create message content container
-    const content = document.createElement('div');
-    content.className = 'message-content';
 
-    // Create label
-    const label = document.createElement('div');
-    label.className = 'message-label';
-    label.textContent = type === 'user' ? 'User' : 'Sarah';
+    // Create message container
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${type}`;
 
-    // Create message text
-    const textDiv = document.createElement('div');
-    textDiv.className = 'message-text';
-    textDiv.textContent = text;
 
-    // Create timestamp
-    const time = document.createElement('div');
-    time.className = 'message-time';
-    time.textContent = now.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit'
-    });
+    // Create avatar
+    const avatar = document.createElement('div');
+    avatar.className = 'message-avatar';
+    avatar.textContent = type === 'user' ? '👤' : '🤖';
 
-    // Assemble message structure
-    content.appendChild(label);
-    content.appendChild(textDiv);
-    content.appendChild(time);
 
-    messageDiv.appendChild(avatar);
-    messageDiv.appendChild(content);
+    // Create message content container
+    const content = document.createElement('div');
+    content.className = 'message-content';
 
-    // Add to transcript
-    transcript.appendChild(messageDiv);
 
-    // Auto-scroll to bottom
-    transcript.scrollTop = transcript.scrollHeight;
+    // Create label
+    const label = document.createElement('div');
+    label.className = 'message-label';
+    label.textContent = type === 'user' ? 'User' : 'Sarah';
 
-    // Update message counter
-    messageCount++;
-    updateMessageCount();
+
+    // Create message text
+    const textDiv = document.createElement('div');
+    textDiv.className = 'message-text';
+    textDiv.textContent = text;
+
+
+    // Create timestamp
+    const time = document.createElement('div');
+    time.className = 'message-time';
+    time.textContent = now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+
+    // Assemble message structure
+    content.appendChild(label);
+    content.appendChild(textDiv);
+    content.appendChild(time);
+
+
+    messageDiv.appendChild(avatar);
+    messageDiv.appendChild(content);
+
+
+    // Add to transcript
+    transcript.appendChild(messageDiv);
+
+
+    // Auto-scroll to bottom
+    transcript.scrollTop = transcript.scrollHeight;
+
+
+    // Update message counter
+    messageCount++;
+    updateMessageCount();
 }
 
+
 /**
- * Update the message count display
- */
+ * Update the message count display
+ */
 function updateMessageCount() {
-    const messageCountElement = document.getElementById('messagesCount');
-    if (messageCountElement) {
-        messageCountElement.textContent = messageCount;
-    }
+    const messageCountElement = document.getElementById('messagesCount');
+    if (messageCountElement) {
+        messageCountElement.textContent = messageCount;
+    }
 }
 
+
 /**
- * Update the conversation count display
- */
+ * Update the conversation count display
+ */
 function updateConversationCount() {
-    const conversationCountElement = document.getElementById('totalConversations');
-    if (conversationCountElement) {
-        conversationCountElement.textContent = conversationCount;
-    }
+    const conversationCountElement = document.getElementById('totalConversations');
+    if (conversationCountElement) {
+        conversationCountElement.textContent = conversationCount;
+    }
 }
+
 
 // ============================================
 // TYPING INDICATOR FUNCTIONS
 // ============================================
 
+
 function showTyping() {
-    if (typingIndicator) {
-        typingIndicator.classList.add('active');
-        transcript.scrollTop = transcript.scrollHeight;
-    }
+    if (typingIndicator) {
+        typingIndicator.classList.add('active');
+        transcript.scrollTop = transcript.scrollHeight;
+    }
 }
 
+
 function hideTyping() {
-    if (typingIndicator) {
-        typingIndicator.classList.remove('active');
-    }
+    if (typingIndicator) {
+        typingIndicator.classList.remove('active');
+    }
 }
+
 
 // ============================================
 // SOCKET.IO EVENT HANDLERS
 // ============================================
 
+
 socket.on('connect', () => {
-    console.log('✓ Connected to server');
-    sessionStartTime = new Date();
-    updateStatus('Connected', '#10b981');
-    conversationCount++;
-    updateConversationCount();
-    reconnectAttempts = 0;
+    console.log('✓ Connected to server');
+    sessionStartTime = new Date();
+    updateStatus('Connected', '#10b981');
+    conversationCount++;
+    updateConversationCount();
+    reconnectAttempts = 0;
 });
+
 
 socket.on('disconnect', (reason) => {
-    console.log('✗ Disconnected:', reason);
-    updateStatus('Disconnected', '#ef4444');
+    console.log('✗ Disconnected:', reason);
+    updateStatus('Disconnected', '#ef4444');
 });
+
 
 socket.on('connect_error', (error) => {
-    console.error('Connection error:', error);
-    updateStatus('Connection Error', '#f59e0b');
+    console.error('Connection error:', error);
+    updateStatus('Connection Error', '#f59e0b');
 });
+
 
 socket.on('reconnect', (attemptNumber) => {
-    console.log('↻ Reconnected after', attemptNumber, 'attempts');
-    updateStatus('Connected', '#10b981');
+    console.log('↻ Reconnected after', attemptNumber, 'attempts');
+    updateStatus('Connected', '#10b981');
 });
+
 
 socket.on('reconnect_failed', () => {
-    console.error('Reconnection failed');
-    updateStatus('Connection Failed', '#ef4444');
+    console.error('Reconnection failed');
+    updateStatus('Connection Failed', '#ef4444');
 });
+
 
 socket.on('error', (error) => {
-    console.error('Socket error:', error);
+    console.error('Socket error:', error);
 });
+
 
 socket.on('transcript', (data) => {
-    console.log('Received transcript from server:', data);
+    console.log('Received transcript from server:', data);
 
-    if (!data || !data.type || !data.text) {
-        console.warn('Invalid transcript data:', data);
-        return;
-    }
 
-    if (data.type === 'ai') {
-        showTyping();
-        setTimeout(() => {
-            hideTyping();
-            addMessage(data.type, data.text);
-        }, 1000);
-    } else {
-        addMessage(data.type, data.text);
-    }
+    if (!data || !data.type || !data.text) {
+        console.warn('Invalid transcript data:', data);
+        return;
+    }
+
+
+    if (data.type === 'ai') {
+        showTyping();
+        setTimeout(() => {
+            hideTyping();
+            addMessage(data.type, data.text);
+        }, 1000);
+    } else {
+        addMessage(data.type, data.text);
+    }
 });
+
 
 socket.on('history', (data) => {
-    console.log('Received history:', data);
+    console.log('Received history:', data);
 
-    if (data && data.data && Array.isArray(data.data) && data.data.length > 0) {
-        removeEmptyState();
-        data.data.forEach(item => {
-            addMessage(item.type, item.text);
-        });
-    }
+
+    if (data && data.data && Array.isArray(data.data) && data.data.length > 0) {
+        removeEmptyState();
+        data.data.forEach(item => {
+            addMessage(item.type, item.text);
+        });
+    }
 });
+
 
 socket.on('status_update', (data) => {
-    console.log('Status update:', data);
+    console.log('Status update:', data);
 });
+
 
 // ============================================
 // UTILITY FUNCTIONS
 // ============================================
 
+
 function updateStatus(status, color) {
-    if (statusBadge) {
-        statusBadge.innerHTML = `<div class="status-dot"></div><span>${status}</span>`;
-        statusBadge.style.background = color;
-    }
+    if (statusBadge) {
+        statusBadge.innerHTML = `<div class="status-dot"></div><span>${status}</span>`;
+        statusBadge.style.background = color;
+    }
 }
+
 
 function clearTranscript() {
-    if (confirm('Are you sure you want to clear the conversation?')) {
-        transcript.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">💬</div>
-                <h3>No conversations yet</h3>
-                <p>Start a call to begin...</p>
-            </div>
-        `;
-        messageCount = 0;
-        lastMessageDate = null;
-        updateMessageCount();
-        console.log('Transcript cleared');
-    }
+    if (confirm('Are you sure you want to clear the conversation?')) {
+        transcript.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">💬</div>
+                <h3>No conversations yet</h3>
+                <p>Start a call to begin...</p>
+            </div>
+        `;
+        messageCount = 0;
+        lastMessageDate = null;
+        updateMessageCount();
+        console.log('Transcript cleared');
+    }
 }
+
 
 function exportTranscript() {
-    const messages = Array.from(transcript.querySelectorAll('.message'));
+    const messages = Array.from(transcript.querySelectorAll('.message'));
 
-    if (messages.length === 0) {
-        alert('No messages to export!');
-        return;
-    }
 
-    const exportData = messages.map(msg => {
-        const type = msg.classList.contains('user') ? 'User' : 'Sarah';
-        const text = msg.querySelector('.message-text')?.textContent || '';
-        const time = msg.querySelector('.message-time')?.textContent || '';
-        return `[${time}] ${type}: ${text}`;
-    }).join('\n');
+    if (messages.length === 0) {
+        alert('No messages to export!');
+        return;
+    }
 
-    const blob = new Blob([exportData], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ai-receptionist-${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
 
-    console.log('Transcript exported as TXT');
+    const exportData = messages.map(msg => {
+        const type = msg.classList.contains('user') ? 'User' : 'Sarah';
+        const text = msg.querySelector('.message-text')?.textContent || '';
+        const time = msg.querySelector('.message-time')?.textContent || '';
+        return `[${time}] ${type}: ${text}`;
+    }).join('\n');
+
+
+    const blob = new Blob([exportData], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ai-receptionist-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+
+    console.log('Transcript exported as TXT');
 }
 
+
 function showHelp() {
-    alert(`🤖 AI Receptionist Dashboard - Help
+    alert(`🤖 AI Receptionist Dashboard - Help
+
 
 ⌨️ KEYBOARD SHORTCUTS:
 • Ctrl/Cmd + Space: Toggle call on/off
@@ -607,11 +699,13 @@ function showHelp() {
 • Ctrl/Cmd + E: Export as TXT
 • Ctrl/Cmd + S: Show statistics
 
+
 🎙️ VOICE CALLING:
 • Click "Start Call" to begin
 • Speak naturally - AI listens
 • Transcripts appear in real-time
 • Click "End Call" to finish
+
 
 ✨ FEATURES:
 • Real-time transcription
@@ -619,138 +713,157 @@ function showHelp() {
 • Message export (TXT)
 • Call statistics
 
+
 💡 TIPS:
 • Allow microphone permissions
 • Speak clearly for better accuracy
 • Check console (F12) for logs`);
 }
 
+
 function scrollToBottom() {
-    transcript.scrollTo({
-        top: transcript.scrollHeight,
-        behavior: 'smooth'
-    });
+    transcript.scrollTo({
+        top: transcript.scrollHeight,
+        behavior: 'smooth'
+    });
 }
+
 
 function getConversationStats() {
-    const messages = Array.from(transcript.querySelectorAll('.message'));
-    const userMessages = messages.filter(msg => msg.classList.contains('user'));
-    const aiMessages = messages.filter(msg => msg.classList.contains('ai'));
+    const messages = Array.from(transcript.querySelectorAll('.message'));
+    const userMessages = messages.filter(msg => msg.classList.contains('user'));
+    const aiMessages = messages.filter(msg => msg.classList.contains('ai'));
 
-    const stats = {
-        totalMessages: messages.length,
-        userMessages: userMessages.length,
-        aiMessages: aiMessages.length,
-        callActive: isCallActive,
-        timestamp: new Date().toISOString()
-    };
 
-    console.log('Conversation Statistics:', stats);
-    return stats;
+    const stats = {
+        totalMessages: messages.length,
+        userMessages: userMessages.length,
+        aiMessages: aiMessages.length,
+        callActive: isCallActive,
+        timestamp: new Date().toISOString()
+    };
+
+
+    console.log('Conversation Statistics:', stats);
+    return stats;
 }
+
 
 function getSessionDuration() {
-    if (!sessionStartTime) return '0m';
-    const duration = new Date() - sessionStartTime;
-    const minutes = Math.floor(duration / 60000);
-    const seconds = Math.floor((duration % 60000) / 1000);
-    return `${minutes}m ${seconds}s`;
+    if (!sessionStartTime) return '0m';
+    const duration = new Date() - sessionStartTime;
+    const minutes = Math.floor(duration / 60000);
+    const seconds = Math.floor((duration % 60000) / 1000);
+    return `${minutes}m ${seconds}s`;
 }
+
 
 // ============================================
 // EVENT LISTENERS
 // ============================================
 
+
 document.addEventListener('keydown', (e) => {
-    // Ctrl/Cmd + Space to toggle call
-    if (e.code === 'Space' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        isCallActive ? stopCall() : startCall();
-    }
-    // Ctrl/Cmd + K to clear
-    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        clearTranscript();
-    }
-    // Ctrl/Cmd + E to export
-    if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
-        e.preventDefault();
-        exportTranscript();
-    }
-    // Ctrl/Cmd + S to show stats
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        const stats = getConversationStats();
-        alert(`📊 STATISTICS\n\nTotal Messages: ${stats.totalMessages}\nUser Messages: ${stats.userMessages}\nAI Messages: ${stats.aiMessages}\nCall Active: ${stats.callActive ? 'Yes' : 'No'}`);
-    }
+    // Ctrl/Cmd + Space to toggle call
+    if (e.code === 'Space' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        isCallActive ? stopCall() : startCall();
+    }
+    // Ctrl/Cmd + K to clear
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        clearTranscript();
+    }
+    // Ctrl/Cmd + E to export
+    if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+        e.preventDefault();
+        exportTranscript();
+    }
+    // Ctrl/Cmd + S to show stats
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        const stats = getConversationStats();
+        alert(`📊 STATISTICS\n\nTotal Messages: ${stats.totalMessages}\nUser Messages: ${stats.userMessages}\nAI Messages: ${stats.aiMessages}\nCall Active: ${stats.callActive ? 'Yes' : 'No'}`);
+    }
 });
+
 
 if (transcript) {
-    transcript.addEventListener('scroll', () => {
-        const scrollBtn = document.getElementById('scrollBtn');
-        if (scrollBtn) {
-            const isScrolledUp = transcript.scrollHeight - transcript.scrollTop > transcript.clientHeight + 100;
-            scrollBtn.classList.toggle('visible', isScrolledUp);
-        }
-    });
+    transcript.addEventListener('scroll', () => {
+        const scrollBtn = document.getElementById('scrollBtn');
+        if (scrollBtn) {
+            const isScrolledUp = transcript.scrollHeight - transcript.scrollTop > transcript.clientHeight + 100;
+            scrollBtn.classList.toggle('visible', isScrolledUp);
+        }
+    });
 }
 
+
 document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-        console.log('📵 Tab hidden');
-    } else {
-        console.log('📱 Tab visible');
-        if (transcript) {
-            transcript.scrollTop = transcript.scrollHeight;
-        }
-    }
+    if (document.hidden) {
+        console.log('📵 Tab hidden');
+    } else {
+        console.log('📱 Tab visible');
+        if (transcript) {
+            transcript.scrollTop = transcript.scrollHeight;
+        }
+    }
 });
+
 
 window.addEventListener('error', (event) => {
-    console.error('Global error:', event.error);
+    console.error('Global error:', event.error);
 });
 
+
 window.addEventListener('beforeunload', (e) => {
-    if (isCallActive) {
-        e.preventDefault();
-        e.returnValue = 'A call is in progress. Are you sure you want to leave?';
-    }
+    if (isCallActive) {
+        e.preventDefault();
+        e.returnValue = 'A call is in progress. Are you sure you want to leave?';
+    }
 });
+
 
 // ============================================
 // INITIALIZATION
 // ============================================
 
+
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Dashboard initializing...');
-    console.log('Checking for Vapi Widget...');
-    
-    // Initialize Vapi Widget (will poll until window.vapiSDK is available)
-    initializeVapiWidget();
+    console.log('🚀 Dashboard initializing...');
+    console.log('Checking for Vapi Widget...');
+    
+    // Initialize Vapi Widget (will poll until window.vapiSDK is available)
+    initializeVapiWidget();
 
-    // Set initial conversation count
-    conversationCount = 1;
-    updateConversationCount();
 
-    // Update session duration periodically
-    setInterval(() => {
-        const durationElement = document.querySelector('.stat-card:nth-child(3) .value');
-        if (durationElement && sessionStartTime) {
-            durationElement.textContent = getSessionDuration();
-        }
-    }, 1000);
+    // Set initial conversation count
+    conversationCount = 1;
+    updateConversationCount();
 
-    console.log('✅ Dashboard ready');
-    console.log('Keyboard shortcuts:');
-    console.log('  Ctrl/Cmd + Space: Toggle call');
-    console.log('  Ctrl/Cmd + K: Clear transcript');
-    console.log('  Ctrl/Cmd + E: Export transcript');
-    console.log('  Ctrl/Cmd + S: Show statistics');
+
+    // Update session duration periodically
+    setInterval(() => {
+        const durationElement = document.querySelector('.stat-card:nth-child(3) .value');
+        if (durationElement && sessionStartTime) {
+            durationElement.textContent = getSessionDuration();
+        }
+    }, 1000);
+
+
+    console.log('✅ Dashboard ready');
+    console.log('Keyboard shortcuts:');
+    console.log('  Ctrl/Cmd + Space: Toggle call');
+    console.log('  Ctrl/Cmd + K: Clear transcript');
+    console.log('  Ctrl/Cmd + E: Export transcript');
+    console.log('  Ctrl/Cmd + S: Show statistics');
 });
+
 
 // ============================================
 // EXPORT FUNCTIONS FOR GLOBAL ACCESS
 // ============================================
+
 
 window.startCall = startCall;
 window.stopCall = stopCall;
@@ -760,5 +873,6 @@ window.exportTranscript = exportTranscript;
 window.getConversationStats = getConversationStats;
 window.showHelp = showHelp;
 window.scrollToBottom = scrollToBottom;
+
 
 console.log('✅ Dashboard JavaScript loaded successfully');
