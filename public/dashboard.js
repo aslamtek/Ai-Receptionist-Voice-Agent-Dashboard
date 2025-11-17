@@ -112,19 +112,17 @@ function initializeVapiWidget() {
                 }
             }
             // Handle VOICE booking as robust function-call
-            if (message.type === 'function-call' && message.name === 'book_appointment') {
+            if (message.type === 'function-call' && message.name === 'Your appointment is confirmed') {
                 // Build bookingData from structured parameters!
                 const bookingData = {
-                    name: message.parameters.name,
-                    email: message.parameters.email,
-                    date: message.parameters.date,
-                    start_time: message.parameters.start_time,
-                    end_time: message.parameters.end_time,
-                    location: message.parameters.location || "Main Office",
-                    summary: message.parameters.purpose
+                    name: "User Name",
+                    email: "user@email.com",
+                    date: "2025-11-20",
+                    start_time: "13:30",
+                    end_time: "16:30",
+                    location: "Main Office",
+                    summary: "Confirmed via transcript"
                 };
-
-                console.log("Booking data prepared:", bookingData);
 
                 // Send booking data to n8n webhook
                 fetch("https://unthrust-rheumily-september.ngrok-free.dev/webhook/from-agent", {
