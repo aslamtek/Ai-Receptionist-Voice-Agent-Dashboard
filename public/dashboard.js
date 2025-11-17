@@ -32,35 +32,10 @@ const VAPI_AGENT_ID = "8055f23a-436e-4933-b618-416e2bd52354";
 // NOTIFICATION UTILITY
 // ============================================
 
-document.getElementById('bookingButton').onclick = () => {
-    // Collect booking info from form
-    const bookingData = {
-        name: document.getElementById('nameInput').value,
-        email: document.getElementById('emailInput').value,
-        summary: 'Your booking',
-        time: document.getElementById('timeInput').value
-    };
-    // Send the data to n8n via ngrok
-    fetch("https://unthrust-rheumily-september.ngrok-free.dev/webhook/from-agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bookingData)
-    })
-    .then(res => res.json())
-    .then(result => {
-        showNotification('Booking successful! Check your email/calendar.', 'success');
-        console.log("n8n webhook response:", result);
-    })
-    .catch(error => {
-        showNotification('Booking failed: ' + error.message, 'error');
-        console.error("n8n webhook error:", error);
-    });
-};
-
-
 function showNotification(message, type = 'info') {
     console.log(`[${type.toUpperCase()}] ${message}`);
 }
+
 
 // ============================================
 // VAPI WIDGET INITIALIZATION
