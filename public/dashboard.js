@@ -330,7 +330,7 @@ function updateCallStatus(status) {
         'active': '☎️ Call Active',
         'connecting': '⏳ Connecting...',
         'disconnected': '✓ Connected',
-
+        'error': '✓ Connected'
     };
 
 
@@ -338,7 +338,7 @@ function updateCallStatus(status) {
         'active': '#10b981',
         'connecting': '#f59e0b',
         'disconnected': '#10b981',
-
+        'error': '#ef4444'
     };
 
 
