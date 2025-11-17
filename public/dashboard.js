@@ -3,7 +3,7 @@
 // ============================================
 
 // Initialize Socket.IO connection
-//const socket = io(window.location.origin);
+const socket = io(window.location.origin);
 
 // Get DOM elements
 const transcript = document.getElementById('transcript');
@@ -32,10 +32,35 @@ const VAPI_AGENT_ID = "8055f23a-436e-4933-b618-416e2bd52354";
 // NOTIFICATION UTILITY
 // ============================================
 
+document.getElementById('bookingButton').onclick = () => {
+    // Collect booking info from form
+    const bookingData = {
+        name: document.getElementById('nameInput').value,
+        email: document.getElementById('emailInput').value,
+        summary: 'Your booking',
+        time: document.getElementById('timeInput').value
+    };
+    // Send the data to n8n via ngrok
+    fetch("https://unthrust-rheumily-september.ngrok-free.dev/webhook/from-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bookingData)
+    })
+    .then(res => res.json())
+    .then(result => {
+        showNotification('Booking successful! Check your email/calendar.', 'success');
+        console.log("n8n webhook response:", result);
+    })
+    .catch(error => {
+        showNotification('Booking failed: ' + error.message, 'error');
+        console.error("n8n webhook error:", error);
+    });
+};
+
+
 function showNotification(message, type = 'info') {
     console.log(`[${type.toUpperCase()}] ${message}`);
 }
-
 
 // ============================================
 // VAPI WIDGET INITIALIZATION
@@ -45,8 +70,6 @@ function showNotification(message, type = 'info') {
  * Initialize Vapi Web Widget
  * This runs when window.vapiSDK becomes available
  */
-console.log('Running initializeVapiWidget');
-
 function initializeVapiWidget() {
     if (!window.vapiSDK) {
         console.warn('⏳ Waiting for Vapi Widget to load...');
@@ -96,51 +119,24 @@ function initializeVapiWidget() {
         // Message received (transcripts)
         vapiInstance.on('message', (message) => {
             console.log('📨 Message:', message);
-           
-            // Send to backend via Socket.IO (if using)
+
             if (message.type === 'transcript' && message.transcript) {
                 const speaker = message.role === 'assistant' ? 'ai' : 'user';
                 addMessage(speaker, message.transcript);
 
-                // Send to backend via Socket.IO (if using)
-                //if (socket && socket.connected) {
-                  //  socket.emit('transcript', {
-                    //    type: speaker,
-                      //  text: message.transcript,
-                        //source: 'vapi'
-                  //  });
-                //}
-            }
-            // Handle VOICE booking as robust function-call
-            if (message.transcript.toLowerCase().includes('appointment is confirmed')) {
-                const bookingData = {
-                    name: "User Name",
-                    email: "user@email.com",
-                    date: "2025-11-20",
-                    start_time: "13:30",
-                    end_time: "16:30",
-                    location: "Main Office",
-                    summary: "Confirmed via transcript"
-                };
-
-                // Send booking data to n8n webhook
-                fetch("https://unthrust-rheumily-september.ngrok-free.dev/webhook/from-agent", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(bookingData)
-                })
-                .then(res => res.json())
-                .then(result => {
-                    showNotification('Booking successful! Check your email/calendar.', 'success');
-                    console.log("n8n webhook response:", result);
-                })
-                .catch(error => {
-                    showNotification('Booking failed: ' + error.message, 'error');
-                    console.error("n8n webhook error:", error);
-                });
+                // Send to backend via Socket.IO
+                if (socket && socket.connected) {
+                    socket.emit('transcript', {
+                        type: speaker,
+                        text: message.transcript,
+                        source: 'vapi'
+                    });
+                }
+            } else if (message.type === 'function-call') {
+                console.log('🔧 Function call:', message);
             }
         });
-        
+
         // Volume level (for visualization)
         vapiInstance.on('volume-level', (level) => {
             updateVolumeIndicator(level);
@@ -181,7 +177,6 @@ function initializeVapiWidget() {
 /**
  * Start a voice call
  */
-
 function startCall() {
     console.log('📞 Starting call...');
 
@@ -287,14 +282,14 @@ function updateCallStatus(status) {
         'active': '☎️ Call Active',
         'connecting': '⏳ Connecting...',
         'disconnected': '✓ Connected',
-        'error': '✓ Connected'
+        'error': '❌ Connection Error'
     };
 
     const statusColors = {
         'active': '#10b981',
         'connecting': '#f59e0b',
         'disconnected': '#10b981',
-        'error': '#10b981'
+        'error': '#ef4444'
     };
 
     statusBadge.innerHTML = `<div class="status-dot"></div><span>${statusText[status] || 'Connected'}</span>`;
@@ -468,6 +463,77 @@ function hideTyping() {
         typingIndicator.classList.remove('active');
     }
 }
+
+// ============================================
+// SOCKET.IO EVENT HANDLERS
+// ============================================
+
+socket.on('connect', () => {
+    console.log('✓ Connected to server');
+    sessionStartTime = new Date();
+    updateStatus('Connected', '#10b981');
+    conversationCount++;
+    updateConversationCount();
+    reconnectAttempts = 0;
+});
+
+socket.on('disconnect', (reason) => {
+    console.log('✗ Disconnected:', reason);
+    updateStatus('Disconnected', '#ef4444');
+});
+
+socket.on('connect_error', (error) => {
+    console.error('Connection error:', error);
+    updateStatus('Connection Error', '#f59e0b');
+});
+
+socket.on('reconnect', (attemptNumber) => {
+    console.log('↻ Reconnected after', attemptNumber, 'attempts');
+    updateStatus('Connected', '#10b981');
+});
+
+socket.on('reconnect_failed', () => {
+    console.error('Reconnection failed');
+    updateStatus('Connection Failed', '#ef4444');
+});
+
+socket.on('error', (error) => {
+    console.error('Socket error:', error);
+});
+
+socket.on('transcript', (data) => {
+    console.log('Received transcript from server:', data);
+
+    if (!data || !data.type || !data.text) {
+        console.warn('Invalid transcript data:', data);
+        return;
+    }
+
+    if (data.type === 'ai') {
+        showTyping();
+        setTimeout(() => {
+            hideTyping();
+            addMessage(data.type, data.text);
+        }, 1000);
+    } else {
+        addMessage(data.type, data.text);
+    }
+});
+
+socket.on('history', (data) => {
+    console.log('Received history:', data);
+
+    if (data && data.data && Array.isArray(data.data) && data.data.length > 0) {
+        removeEmptyState();
+        data.data.forEach(item => {
+            addMessage(item.type, item.text);
+        });
+    }
+});
+
+socket.on('status_update', (data) => {
+    console.log('Status update:', data);
+});
 
 // ============================================
 // UTILITY FUNCTIONS
@@ -650,7 +716,7 @@ window.addEventListener('beforeunload', (e) => {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 Dashboard initializing...');
     console.log('Checking for Vapi Widget...');
-    
+
     // Initialize Vapi Widget (will poll until window.vapiSDK is available)
     initializeVapiWidget();
 
