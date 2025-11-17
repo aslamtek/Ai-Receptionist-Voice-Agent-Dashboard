@@ -112,8 +112,7 @@ function initializeVapiWidget() {
                 }
             }
             // Handle VOICE booking as robust function-call
-            if (message.type === 'function-call' && message.name === 'Your appointment is confirmed') {
-                // Build bookingData from structured parameters!
+            if (message.transcript.toLowerCase().includes('appointment is confirmed')) {
                 const bookingData = {
                     name: "User Name",
                     email: "user@email.com",
