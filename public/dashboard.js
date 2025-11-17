@@ -70,6 +70,8 @@ function showNotification(message, type = 'info') {
  * Initialize Vapi Web Widget
  * This runs when window.vapiSDK becomes available
  */
+console.log('Running initializeVapiWidget');
+
 function initializeVapiWidget() {
     if (!window.vapiSDK) {
         console.warn('⏳ Waiting for Vapi Widget to load...');
@@ -746,7 +748,7 @@ window.addEventListener('beforeunload', (e) => {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 Dashboard initializing...');
     console.log('Checking for Vapi Widget...');
-
+    
     // Initialize Vapi Widget (will poll until window.vapiSDK is available)
     initializeVapiWidget();
 
