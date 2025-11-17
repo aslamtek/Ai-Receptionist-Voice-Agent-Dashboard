@@ -10,8 +10,7 @@
     <link rel="stylesheet" href="dashboard.css">
 
 
-        <!-- Vapi Web SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@vapi-ai/web/dist/vapi.min.js"></script>
+
 
     <!-- Dashboard Logic (Load Second with defer) -->
     <script src="dashboard.js" defer></script>
@@ -136,5 +135,7 @@
         html { scroll-behavior: smooth; }
     </style>
 
+    <!-- Vapi Web Widget (Load Last - after all DOM elements and scripts) -->
+    <script src="https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js" defer></script>
 </body>
 </html>
