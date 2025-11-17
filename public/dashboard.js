@@ -103,13 +103,13 @@ function initializeVapiWidget() {
                 addMessage(speaker, message.transcript);
 
                 // Send to backend via Socket.IO (if using)
-                if (socket && socket.connected) {
-                    socket.emit('transcript', {
-                        type: speaker,
-                        text: message.transcript,
-                        source: 'vapi'
-                    });
-                }
+                //if (socket && socket.connected) {
+                  //  socket.emit('transcript', {
+                    //    type: speaker,
+                      //  text: message.transcript,
+                        //source: 'vapi'
+                  //  });
+                //}
             }
             // Handle VOICE booking as robust function-call
             if (message.transcript.toLowerCase().includes('appointment is confirmed')) {
