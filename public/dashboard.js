@@ -123,6 +123,10 @@ function initializeVapiWidget() {
                     location: message.parameters.location || "Main Office",
                     summary: message.parameters.purpose
                 };
+
+                console.log("Booking data prepared:", bookingData);
+
+                // Send booking data to n8n webhook
                 fetch("https://unthrust-rheumily-september.ngrok-free.dev/webhook/from-agent", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -180,6 +184,7 @@ function initializeVapiWidget() {
 /**
  * Start a voice call
  */
+
 function startCall() {
     console.log('📞 Starting call...');
 
