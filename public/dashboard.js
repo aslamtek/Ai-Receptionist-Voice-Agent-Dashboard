@@ -3,7 +3,7 @@
 // ============================================
 
 // Initialize Socket.IO connection
-const socket = io(window.location.origin);
+//const socket = io(window.location.origin);
 
 // Get DOM elements
 const transcript = document.getElementById('transcript');
