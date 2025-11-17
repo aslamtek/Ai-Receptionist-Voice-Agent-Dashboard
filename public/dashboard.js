@@ -124,6 +124,36 @@ function initializeVapiWidget() {
                 const speaker = message.role === 'assistant' ? 'ai' : 'user';
                 addMessage(speaker, message.transcript);
 
+                // === NEW: Detect booking intent/confirmation keywords ===
+                if (
+                    message.transcript.toLowerCase().includes('booking confirmed') ||
+                    message.transcript.toLowerCase().includes('appointment booked')
+                ) {
+                    // TODO: Replace with real extracted info, this is demo/sample data!
+                    const bookingData = {
+                        name: 'Ali', // you should extract user name or ask for it!
+                        email: 'ali@email.com', // dynamically populate!
+                        summary: 'Demo Booking',
+                        time: '2025-11-18T14:00' // get actual time
+                    };
+                    fetch("https://unthrust-rheumily-september.ngrok-free.dev/webhook/from-agent", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(bookingData)
+                    })
+                    .then(res => res.json())
+                    .then(result => {
+                        showNotification('Booking successful! Check your email/calendar.', 'success');
+                        console.log("n8n webhook response:", result);
+                    })
+                    .catch(error => {
+                        showNotification('Booking failed: ' + error.message, 'error');
+                        console.error("n8n webhook error:", error);
+                    });
+                }
+        
+                // === END: booking handler ===
+
                 // Send to backend via Socket.IO
                 if (socket && socket.connected) {
                     socket.emit('transcript', {
