@@ -32,35 +32,10 @@ const VAPI_AGENT_ID = "8055f23a-436e-4933-b618-416e2bd52354";
 // NOTIFICATION UTILITY
 // ============================================
 
-document.getElementById('bookingButton').onclick = () => {
-    // Collect booking info from form
-    const bookingData = {
-        name: document.getElementById('nameInput').value,
-        email: document.getElementById('emailInput').value,
-        summary: 'Your booking',
-        time: document.getElementById('timeInput').value
-    };
-    // Send the data to n8n via ngrok
-    fetch("https://unthrust-rheumily-september.ngrok-free.dev/webhook/from-agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bookingData)
-    })
-    .then(res => res.json())
-    .then(result => {
-        showNotification('Booking successful! Check your email/calendar.', 'success');
-        console.log("n8n webhook response:", result);
-    })
-    .catch(error => {
-        showNotification('Booking failed: ' + error.message, 'error');
-        console.error("n8n webhook error:", error);
-    });
-};
-
-
 function showNotification(message, type = 'info') {
     console.log(`[${type.toUpperCase()}] ${message}`);
 }
+
 
 // ============================================
 // VAPI WIDGET INITIALIZATION
@@ -70,6 +45,8 @@ function showNotification(message, type = 'info') {
  * Initialize Vapi Web Widget
  * This runs when window.vapiSDK becomes available
  */
+console.log('Running initializeVapiWidget');
+
 function initializeVapiWidget() {
     if (!window.vapiSDK) {
         console.warn('⏳ Waiting for Vapi Widget to load...');
@@ -123,6 +100,37 @@ function initializeVapiWidget() {
             if (message.type === 'transcript' && message.transcript) {
                 const speaker = message.role === 'assistant' ? 'ai' : 'user';
                 addMessage(speaker, message.transcript);
+
+                // === NEW: Detect booking intent/confirmation keywords ===
+                if (
+                    message.transcript.toLowerCase().includes('booking confirmed') ||
+                    message.transcript.toLowerCase().includes('appointment booked') ||
+                    message.transcript.toLowerCase().includes('appointment has been booked')
+                ) {
+                    // TODO: Replace with real extracted info, this is demo/sample data!
+                    const bookingData = {
+                        name: 'Ali', // you should extract user name or ask for it!
+                        email: 'ali@email.com', // dynamically populate!
+                        summary: 'Demo Booking',
+                        time: '2025-11-18T14:00' // get actual time 
+                    };
+                    fetch("https://unthrust-rheumily-september.ngrok-free.dev/webhook/from-agent", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(bookingData)
+                    })
+                    .then(res => res.json())
+                    .then(result => {
+                        showNotification('Booking successful! Check your email/calendar.', 'success');
+                        console.log("n8n webhook response:", result);
+                    })
+                    .catch(error => {
+                        showNotification('Booking failed: ' + error.message, 'error');
+                        console.error("n8n webhook error:", error);
+                    });
+                }
+        
+                // === END: booking handler ===
 
                 // Send to backend via Socket.IO
                 if (socket && socket.connected) {
@@ -716,7 +724,7 @@ window.addEventListener('beforeunload', (e) => {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 Dashboard initializing...');
     console.log('Checking for Vapi Widget...');
-
+    
     // Initialize Vapi Widget (will poll until window.vapiSDK is available)
     initializeVapiWidget();
 
